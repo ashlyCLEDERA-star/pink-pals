@@ -1,0 +1,1242 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#a855f7">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Our Little Space 💗</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      --maroon: #641b35;
+      --dark: #171216;
+      --panel: #241c22;
+      --cream: #f5e9d7;
+      --muted: #c1adb8;
+      --pink: #e8a4bc;
+      --border: #49333f;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--dark);
+      color: var(--cream);
+      font-family: Arial, sans-serif;
+    }
+
+    button, input, textarea { font: inherit; }
+
+    button {
+      cursor: pointer;
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 15px;
+      background: var(--maroon);
+      color: white;
+      font-weight: bold;
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      color: var(--cream);
+      background: #171216;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--pink);
+    }
+
+    .topbar {
+      background: var(--maroon);
+      padding: 18px;
+      text-align: center;
+    }
+
+    .topbar h1 { margin: 0 0 5px; }
+    .topbar p { margin: 0; color: #f7dce6; }
+
+    .container {
+      width: min(1100px, 100%);
+      margin: auto;
+      padding: 18px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    h2, h3 { margin-top: 0; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .stack { display: grid; gap: 12px; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .hidden { display: none !important; }
+
+    .status {
+      margin: 12px 0;
+      padding: 11px;
+      border-radius: 10px;
+      background: #2d232a;
+      color: var(--pink);
+      overflow-wrap: anywhere;
+    }
+
+    .room-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .members {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .member {
+      padding: 7px 10px;
+      background: #382632;
+      border-radius: 20px;
+      font-size: 13px;
+    }
+
+    .chat-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 440px;
+      overflow-y: auto;
+      padding: 4px;
+    }
+
+    .message {
+      align-self: flex-start;
+      max-width: min(85%, 650px);
+      background: #382832;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 11px 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .message.mine {
+      align-self: flex-end;
+      background: var(--maroon);
+    }
+
+    .message-author {
+      font-size: 12px;
+      color: var(--pink);
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+
+    .message-text {
+      white-space: pre-wrap;
+      line-height: 1.45;
+    }
+
+    .timestamp {
+      font-size: 11px;
+      color: #d8c2ce;
+      margin-top: 7px;
+    }
+
+    .composer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .media-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 12px;
+    }
+
+    .media-card {
+      min-width: 0;
+      background: #191419;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      overflow: hidden;
+    }
+
+    .media-card img, .media-card video {
+      display: block;
+      width: 100%;
+      max-height: 300px;
+      object-fit: contain;
+      background: #0d0b0d;
+      border-radius: 8px;
+    }
+
+    .media-name {
+      overflow-wrap: anywhere;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .media-meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 5px;
+    }
+
+    .small-button {
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      padding: 20px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 600px) {
+      .container { padding: 10px; }
+      .panel { padding: 13px; }
+      .two { grid-template-columns: 1fr; }
+      .composer { grid-template-columns: 1fr; }
+      .message { max-width: 95%; }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="topbar">
+    <h1>💗 Our Little Space</h1>
+    <p>A little corner for our favorite people ✨</p>
+  </header>
+
+  <main class="container">
+    <div id="status" class="status">Connecting to chat...</div>
+
+    <section id="loginPanel" class="panel">
+      <h2>Welcome, friend! 🌷</h2>
+      <p class="muted">
+        Choose a nickname to create a room or join your friends.
+        Use the same browser and device to keep your current session.
+      </p>
+
+      <div class="stack">
+        <label for="nickname">Your nickname</label>
+        <input id="nickname" maxlength="30" placeholder="Enter your nickname">
+
+        <div class="two">
+          <button id="createButton" type="button">＋ Create a room</button>
+          <button id="showJoinButton" type="button">♡ Join a room</button>
+        </div>
+
+        <div id="joinBox" class="stack hidden">
+          <label for="inviteCode">Room invite code</label>
+          <input id="inviteCode" placeholder="Paste your friend's code">
+          <button id="joinButton" type="button">Join friends 💗</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="roomPanel" class="hidden">
+      <div class="panel">
+        <div class="room-heading">
+          <div>
+            <h2 id="roomName">Our Little Space</h2>
+            <div class="muted">Invite code: <strong id="roomCode"></strong></div>
+          </div>
+          <div class="two">
+            <button id="copyButton" type="button">Copy code</button>
+            <button id="leaveButton" type="button">Leave room</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>👥 Friends in this room</h3>
+        <div id="members" class="members"></div>
+      </div>
+
+      <div class="panel">
+        <h3>💬 Group chat</h3>
+        <div id="messages" class="chat-list"></div>
+
+        <form id="messageForm" class="composer">
+          <input id="messageInput" maxlength="2000"
+            placeholder="Type a message..." autocomplete="off">
+          <button id="sendButton" type="submit">Send 💌</button>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h3>📸 Share pictures and videos</h3>
+        <p class="muted">
+          Choose pictures or videos from your device. Uploaded media is
+          stored in the private chat-media bucket.
+        </p>
+
+        <form id="uploadForm" class="stack">
+          <input id="mediaInput" type="file"
+            accept="image/*,video/*" multiple>
+          <button id="uploadButton" type="submit">Upload selected media 📤</button>
+        </form>
+
+        <p id="uploadStatus" class="muted"></p>
+      </div>
+
+     
+      <div class="panel">
+        <h3>🖼️ Shared memories</h3>
+        <div id="mediaGrid" class="media-grid"></div>
+        <p id="mediaEmpty" class="muted">No pictures or videos yet. Share the first one!</p>
+      </div>
+
+      <!-- PASTE THE GAMES CORNER HERE -->
+      <div class="panel" id="gamesPanel">
+        <h3>🎮 Games Corner</h3>
+        <p class="muted">Play alone, with a partner, or with the whole barkada! 💗</p>
+
+        <div class="two">
+          <button type="button" onclick="openGame('word')">🔤 Guess the Word</button>
+          <button type="button" onclick="openGame('quiz')">🧠 Quick Quiz</button>
+          <button type="button" onclick="openGame('ttt')">⭕ Tic-Tac-Toe</button>
+          <button type="button" onclick="openGame('group')">👯 Group Challenge</button>
+        </div>
+
+        <div id="gameArea" class="panel hidden" style="margin-top:16px">
+          <h3 id="gameTitle">Let's play!</h3>
+          <p id="gameQuestion"></p>
+          <div id="gameChoices" class="stack"></div>
+          <p id="gameResult" class="muted"></p>
+          <button type="button" onclick="nextGameQuestion()">Next / Reset 🔄</button>
+        </div>
+      </div>
+      <!-- END OF GAMES CORNER -->
+
+    </section>
+  </main>
+
+
+  <footer>Made with 💗 for our little group</footer>
+
+  <script>
+    // Supabase connection
+    const SUPABASE_URL = "https://jpddssjotvtrnqcxsgag.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_d4umD6IeXzgnt-2sZ8_qOQ_PjftInaZ";
+
+    const client = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
+
+    const BUCKET = "chat-media";
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB per file
+
+    const $ = (id) => document.getElementById(id);
+
+    let currentUser = null;
+    let currentRoom = null;
+    let currentNickname = "";
+    let messageChannel = null;
+    let mediaChannel = null;
+    let memberChannel = null;
+    let renderedMessageIds = new Set();
+    let renderedMediaIds = new Set();
+    let mediaUrls = new Map();
+
+    function setStatus(message) {
+      $("status").textContent = message;
+    }
+
+    function show(element, visible) {
+      element.classList.toggle("hidden", !visible);
+    }
+
+    function normalizeRow(data) {
+      if (Array.isArray(data)) return data[0] || null;
+      return data || null;
+    }
+
+    function safeText(value) {
+      return String(value ?? "");
+    }
+
+    function formatTime(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return date.toLocaleString();
+    }
+
+    function safeFileName(name) {
+      return name
+        .normalize("NFKD")
+        .replace(/[^a-zA-Z0-9._-]/g, "_")
+        .slice(-100) || "upload";
+    }
+
+    async function ensureSignedIn() {
+      const { data: sessionData, error: sessionError } =
+        await client.auth.getSession();
+
+      if (sessionError) throw sessionError;
+
+      if (sessionData.session?.user) {
+        currentUser = sessionData.session.user;
+        return currentUser;
+      }
+
+      const { data, error } = await client.auth.signInAnonymously();
+      if (error) throw error;
+
+      currentUser = data.user;
+      if (!currentUser) throw new Error("Could not start a chat session.");
+      return currentUser;
+    }
+
+    function saveRoomLocally() {
+      if (!currentRoom || !currentUser) return;
+
+      localStorage.setItem("littleSpaceRoomId", currentRoom.id);
+      localStorage.setItem("littleSpaceRoomCode", currentRoom.invite_code);
+      localStorage.setItem("littleSpaceNickname", currentNickname);
+    }
+
+    function clearRoomLocally() {
+      localStorage.removeItem("littleSpaceRoomId");
+      localStorage.removeItem("littleSpaceRoomCode");
+      localStorage.removeItem("littleSpaceNickname");
+    }
+
+    async function createRoom() {
+      try {
+        await ensureSignedIn();
+
+        const nickname = $("nickname").value.trim();
+        if (!nickname) {
+          setStatus("Please enter your nickname first.");
+          $("nickname").focus();
+          return;
+        }
+
+        if (nickname.length > 30) {
+          setStatus("Your nickname must be 30 characters or fewer.");
+          return;
+        }
+
+        $("createButton").disabled = true;
+        setStatus("Creating your room...");
+
+        const { data, error } = await client.rpc("create_chat_room", {
+          p_display_name: nickname
+        });
+
+        if (error) throw error;
+
+        
+        const room = normalizeRow(data);
+
+        if (!room) {
+          throw new Error("The room details were not returned.");
+        }
+
+          room.id = room.id || room.room_id;
+          room.name = room.name || room.room_name;
+
+        if (!room.id || !room.invite_code) {
+          throw new Error("Missing room ID or invite code.");
+      }
+
+        currentRoom = room;
+        currentNickname = nickname;
+        saveRoomLocally();
+        await enterRoom();
+      } catch (error) {
+        console.error(error);
+        setStatus("Could not create room: " + error.message);
+      } finally {
+        $("createButton").disabled = false;
+      }
+    }
+
+    async function joinRoom() {
+      try {
+        await ensureSignedIn();
+
+        const nickname = $("nickname").value.trim();
+        const code = $("inviteCode").value.trim();
+
+        if (!nickname) {
+          setStatus("Please enter your nickname first.");
+          $("nickname").focus();
+          return;
+        }
+
+        if (!code) {
+          setStatus("Please enter your room invite code.");
+          return;
+        }
+
+        $("joinButton").disabled = true;
+        setStatus("Joining your friends...");
+
+        const { data, error } = await client.rpc("join_chat_room", {
+          p_invite_code: code,
+          p_display_name: nickname
+        });
+
+        if (error) throw error;
+
+        const room = normalizeRow(data);
+        if (!room || !(room.room_id || room.id)) {
+        console.log("Join room response:", data);
+        throw new Error(
+          "The room details were not returned. Check the browser console."
+      );
+    }
+
+room.id = room.id || room.room_id;
+room.name = room.name || room.room_name;
+room.invite_code = room.invite_code || code;
+
+currentRoom = room;
+currentNickname = nickname;
+saveRoomLocally();
+await enterRoom();
+
+      } catch (error) {
+        console.error(error);
+        setStatus("Could not join room: " + error.message);
+      } finally {
+        $("joinButton").disabled = false;
+      }
+    }
+
+    async function restoreRoom() {
+      const roomId = localStorage.getItem("littleSpaceRoomId");
+      const nickname = localStorage.getItem("littleSpaceNickname");
+      const code = localStorage.getItem("littleSpaceRoomCode");
+
+      if (!roomId || !nickname) return false;
+
+      try {
+        await ensureSignedIn();
+
+        const { data, error } = await client
+          .from("chat_rooms")
+          .select("id,name,invite_code")
+          .eq("id", roomId)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!data) return false;
+
+        currentRoom = data;
+        currentNickname = nickname;
+
+        if (!currentRoom.invite_code && code) {
+          currentRoom.invite_code = code;
+        }
+
+        await enterRoom();
+        return true;
+      } catch (error) {
+        console.error("Could not restore room:", error);
+        return false;
+      }
+    }
+
+    async function enterRoom() {
+      if (!currentRoom || !currentUser) return;
+
+      show($("loginPanel"), false);
+      show($("roomPanel"), true);
+
+      $("roomName").textContent = currentRoom.name || "Our Little Space";
+      $("roomCode").textContent = currentRoom.invite_code || "(unavailable)";
+      setStatus("You're in the room, " + currentNickname + "! 💗");
+
+      $("messages").replaceChildren();
+      $("mediaGrid").replaceChildren();
+      $("members").replaceChildren();
+      renderedMessageIds.clear();
+      renderedMediaIds.clear();
+
+      await loadMembers();
+      await loadMessages();
+      await loadMedia();
+
+      subscribeToMessages();
+      subscribeToMedia();
+      subscribeToMembers();
+    }
+
+    async function loadMembers() {
+      if (!currentRoom) return;
+
+      const { data, error } = await client
+        .from("chat_members")
+        .select("user_id,display_name")
+        .eq("room_id", currentRoom.id)
+        .order("joined_at", { ascending: true });
+
+      if (error) {
+        console.error("Could not load members:", error);
+        return;
+      }
+
+      $("members").replaceChildren();
+
+      for (const member of (data || [])) {
+        const chip = document.createElement("span");
+        chip.className = "member";
+        chip.textContent =
+          member.display_name +
+          (member.user_id === currentUser.id ? " (you)" : "");
+        $("members").appendChild(chip);
+      }
+
+      if (!data?.length) {
+        $("members").textContent = "No members to show yet.";
+      }
+    }
+
+    async function loadMessages() {
+      if (!currentRoom) return;
+
+      const { data, error } = await client
+        .from("chat_messages")
+        .select("id,room_id,user_id,display_name,message,created_at")
+        .eq("room_id", currentRoom.id)
+        .order("created_at", { ascending: true })
+        .limit(200);
+
+      if (error) {
+        console.error("Could not load messages:", error);
+        setStatus("Could not load messages: " + error.message);
+        return;
+      }
+
+      $("messages").replaceChildren();
+      renderedMessageIds.clear();
+
+      for (const item of (data || [])) renderMessage(item);
+      scrollMessagesToBottom();
+    }
+
+    function renderMessage(item) {
+      const id = String(item.id);
+      if (renderedMessageIds.has(id)) return;
+      renderedMessageIds.add(id);
+
+      const wrapper = document.createElement("div");
+      wrapper.className =
+        "message" + (item.user_id === currentUser?.id ? " mine" : "");
+
+      const author = document.createElement("div");
+      author.className = "message-author";
+      author.textContent = safeText(item.display_name);
+
+      const body = document.createElement("div");
+      body.className = "message-text";
+      body.textContent = safeText(item.message);
+
+      const time = document.createElement("div");
+      time.className = "timestamp";
+      time.textContent = formatTime(item.created_at);
+
+      wrapper.append(author, body, time);
+      $("messages").appendChild(wrapper);
+    }
+
+    function scrollMessagesToBottom() {
+      $("messages").scrollTop = $("messages").scrollHeight;
+    }
+
+    function subscribeToMessages() {
+      if (messageChannel) client.removeChannel(messageChannel);
+
+      messageChannel = client
+        .channel("messages-" + currentRoom.id)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "chat_messages",
+            filter: "room_id=eq." + currentRoom.id
+          },
+          (payload) => {
+            renderMessage(payload.new);
+            scrollMessagesToBottom();
+          }
+        )
+        .subscribe((status) => {
+          if (status === "CHANNEL_ERROR") {
+            console.error("Message realtime channel error.");
+          }
+        });
+    }
+
+    function subscribeToMembers() {
+      if (memberChannel) client.removeChannel(memberChannel);
+
+      memberChannel = client
+        .channel("members-" + currentRoom.id)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "chat_members",
+            filter: "room_id=eq." + currentRoom.id
+          },
+          () => loadMembers()
+        )
+        .subscribe();
+    }
+
+    async function sendMessage(event) {
+      event.preventDefault();
+
+      if (!currentRoom || !currentUser) return;
+
+      const input = $("messageInput");
+      const message = input.value.trim();
+      if (!message) return;
+
+      $("sendButton").disabled = true;
+
+      try {
+        const { error } = await client
+          .from("chat_messages")
+          .insert({
+            room_id: currentRoom.id,
+            user_id: currentUser.id,
+            display_name: currentNickname,
+            message
+          });
+
+        if (error) throw error;
+
+        input.value = "";
+        input.focus();
+      } catch (error) {
+        console.error(error);
+        setStatus("Message could not be sent: " + error.message);
+      } finally {
+        $("sendButton").disabled = false;
+      }
+    }
+
+    async function copyInvite() {
+      const code = currentRoom?.invite_code;
+      if (!code) {
+        setStatus("There is no invite code to copy.");
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(code);
+        setStatus("Invite code copied! Send it to your friends. 💗");
+      } catch (error) {
+        window.prompt("Copy this invite code:", code);
+      }
+    }
+
+    async function loadMedia() {
+      if (!currentRoom) return;
+
+      $("mediaEmpty").textContent = "Loading shared memories...";
+      show($("mediaEmpty"), true);
+
+      const { data, error } = await client
+        .from("chat_media")
+        .select("id,room_id,user_id,display_name,file_path,file_name,media_type,created_at")
+        .eq("room_id", currentRoom.id)
+        .order("created_at", { ascending: true })
+        .limit(100);
+
+      if (error) {
+        console.error("Could not load media:", error);
+        $("mediaEmpty").textContent =
+          "Could not load media: " + error.message;
+        return;
+      }
+
+      $("mediaGrid").replaceChildren();
+      renderedMediaIds.clear();
+      mediaUrls.clear();
+
+      if (!data || data.length === 0) {
+        $("mediaEmpty").textContent =
+          "No pictures or videos yet. Share the first one!";
+        show($("mediaEmpty"), true);
+        return;
+      }
+
+      show($("mediaEmpty"), false);
+
+      for (const item of data) {
+        await renderMedia(item);
+      }
+    }
+
+    async function renderMedia(item) {
+      const id = String(item.id);
+      if (renderedMediaIds.has(id)) return;
+      renderedMediaIds.add(id);
+
+      const card = document.createElement("article");
+      card.className = "media-card";
+
+      const loading = document.createElement("p");
+      loading.className = "muted";
+      loading.textContent = "Loading media...";
+      card.appendChild(loading);
+      $("mediaGrid").appendChild(card);
+
+      try {
+        const { data, error } = await client.storage
+          .from(BUCKET)
+          .createSignedUrl(item.file_path, 3600);
+
+        if (error) throw error;
+
+        const url = data.signedUrl;
+        mediaUrls.set(id, url);
+        card.replaceChildren();
+
+        let mediaElement;
+
+        if (item.media_type === "image") {
+          mediaElement = document.createElement("img");
+          mediaElement.alt = item.file_name || "Shared picture";
+          mediaElement.loading = "lazy";
+          mediaElement.src = url;
+        } else if (item.media_type === "video") {
+          mediaElement = document.createElement("video");
+          mediaElement.controls = true;
+          mediaElement.preload = "metadata";
+          mediaElement.playsInline = true;
+          mediaElement.src = url;
+        } else {
+          card.remove();
+          return;
+        }
+
+        const name = document.createElement("div");
+        name.className = "media-name";
+        name.textContent = item.file_name || "Shared file";
+
+        const meta = document.createElement("div");
+        meta.className = "media-meta";
+        meta.textContent =
+          safeText(item.display_name) + " · " + formatTime(item.created_at);
+
+        card.append(mediaElement, name, meta);
+      } catch (error) {
+        console.error("Could not open media:", error);
+        card.replaceChildren();
+
+        const errorText = document.createElement("p");
+        errorText.className = "muted";
+        errorText.textContent =
+          "Could not open this file. Check your room access or storage policies.";
+        card.appendChild(errorText);
+      }
+    }
+
+    function subscribeToMedia() {
+      if (mediaChannel) client.removeChannel(mediaChannel);
+
+      mediaChannel = client
+        .channel("media-" + currentRoom.id)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "chat_media",
+            filter: "room_id=eq." + currentRoom.id
+          },
+          (payload) => {
+            show($("mediaEmpty"), false);
+            renderMedia(payload.new);
+          }
+        )
+        .subscribe((status) => {
+          if (status === "CHANNEL_ERROR") {
+            console.error("Media realtime channel error.");
+          }
+        });
+    }
+
+    async function uploadMedia(event) {
+      event.preventDefault();
+
+      if (!currentRoom || !currentUser) {
+        setStatus("Join a room before uploading media.");
+        return;
+      }
+
+      const files = Array.from($("mediaInput").files || []);
+      if (!files.length) {
+        $("uploadStatus").textContent = "Choose at least one picture or video.";
+        return;
+      }
+
+      $("uploadButton").disabled = true;
+      $("uploadStatus").textContent = "Preparing upload...";
+
+      let uploadedCount = 0;
+
+      try {
+        for (const file of files) {
+          if (!file.type.startsWith("image/") &&
+              !file.type.startsWith("video/")) {
+            throw new Error(file.name + " is not an image or video.");
+          }
+
+          if (file.size > MAX_FILE_SIZE) {
+            throw new Error(
+              file.name + " is larger than 50 MB. Please choose a smaller file."
+            );
+          }
+
+          $("uploadStatus").textContent = "Uploading " + file.name + "...";
+
+          const mediaType = file.type.startsWith("image/")
+            ? "image"
+            : "video";
+
+          // The first folder must be the room UUID for the storage policies.
+          const filePath =
+            currentRoom.id + "/" +
+            currentUser.id + "/" +
+            crypto.randomUUID() + "-" +
+            safeFileName(file.name);
+
+          const { error: uploadError } = await client.storage
+            .from(BUCKET)
+            .upload(filePath, file, {
+              contentType: file.type,
+              upsert: false
+            });
+
+          if (uploadError) throw uploadError;
+
+          const { error: recordError } = await client
+            .from("chat_media")
+            .insert({
+              room_id: currentRoom.id,
+              user_id: currentUser.id,
+              display_name: currentNickname,
+              file_path: filePath,
+              file_name: file.name,
+              media_type: mediaType
+            });
+
+          if (recordError) {
+            // Remove the uploaded object if its database record failed.
+            await client.storage.from(BUCKET).remove([filePath]);
+            throw recordError;
+          }
+
+          uploadedCount++;
+        }
+
+        $("mediaInput").value = "";
+        $("uploadStatus").textContent =
+          "Uploaded " + uploadedCount + " file(s) successfully! 💗";
+
+        // Refresh as a fallback if a realtime event is delayed.
+        await loadMedia();
+      } catch (error) {
+        console.error("Upload failed:", error);
+        $("uploadStatus").textContent =
+          "Upload failed: " + error.message;
+      } finally {
+        $("uploadButton").disabled = false;
+      }
+    }
+
+    async function leaveRoom() {
+      if (!confirm("Leave this room on this device?")) return;
+
+      if (messageChannel) client.removeChannel(messageChannel);
+      if (mediaChannel) client.removeChannel(mediaChannel);
+      if (memberChannel) client.removeChannel(memberChannel);
+
+      messageChannel = null;
+      mediaChannel = null;
+      memberChannel = null;
+
+      currentRoom = null;
+      clearRoomLocally();
+
+      $("messages").replaceChildren();
+      $("mediaGrid").replaceChildren();
+      $("members").replaceChildren();
+
+      show($("roomPanel"), false);
+      show($("loginPanel"), true);
+      setStatus("You left the room on this device.");
+    }
+
+    $("createButton").addEventListener("click", createRoom);
+    $("showJoinButton").addEventListener("click", () => {
+      show($("joinBox"), true);
+      $("inviteCode").focus();
+    });
+    $("joinButton").addEventListener("click", joinRoom);
+    $("copyButton").addEventListener("click", copyInvite);
+    $("leaveButton").addEventListener("click", leaveRoom);
+    $("messageForm").addEventListener("submit", sendMessage);
+    $("uploadForm").addEventListener("submit", uploadMedia);
+
+    async function startApp() {
+      try {
+        await ensureSignedIn();
+        const restored = await restoreRoom();
+
+        if (!restored) {
+          show($("loginPanel"), true);
+          show($("roomPanel"), false);
+          setStatus("Ready! Enter your nickname to get started. 💗");
+        }
+      } catch (error) {
+        console.error(error);
+        setStatus(
+          "Could not connect. Check your internet and Supabase settings: " +
+          error.message
+        );
+      }
+    }
+
+    
+let wordIndex = 0;
+let quizIndex = 0;
+
+function openGame(game) {
+  const area = document.getElementById("gameArea");
+  const title = document.getElementById("gameTitle");
+  const question = document.getElementById("gameQuestion");
+  const choices = document.getElementById("gameChoices");
+  const result = document.getElementById("gameResult");
+
+  if (!area || !title || !question || !choices || !result) {
+    alert("Game area is missing!");
+    return;
+  }
+
+  area.classList.remove("hidden");
+  choices.replaceChildren();
+  result.textContent = "";
+
+  if (game === "word" || game === "quiz") {
+    showQuestion(game);
+  
+} else if (game === "ttt") {
+  title.textContent = "⭕ Tic-Tac-Toe — Two Players";
+  question.textContent = "Player X starts! Take turns on this device.";
+
+  let board = Array(9).fill("");
+  let turn = "X";
+  let finished = false;
+
+  function drawBoard() {
+    choices.replaceChildren();
+
+    const grid = document.createElement("div");
+    grid.style.display = "grid";
+    grid.style.gridTemplateColumns = "repeat(3, 70px)";
+    grid.style.gap = "6px";
+
+    board.forEach((mark, i) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = mark || " ";
+      button.style.height = "65px";
+      button.style.fontSize = "24px";
+      button.disabled = !!mark || finished;
+
+      button.addEventListener("click", () => {
+        board[i] = turn;
+
+        const wins = [
+          [0,1,2], [3,4,5], [6,7,8],
+          [0,3,6], [1,4,7], [2,5,8],
+          [0,4,8], [2,4,6]
+        ];
+
+        const won = wins.some(line =>
+          line.every(index => board[index] === turn)
+        );
+
+        if (won) {
+          finished = true;
+          result.textContent = "Player " + turn + " wins! 🎉";
+        } else if (board.every(Boolean)) {
+          finished = true;
+          result.textContent = "It's a draw! 💗";
+        } else {
+          turn = turn === "X" ? "O" : "X";
+          result.textContent = "Player " + turn + "'s turn";
+        }
+
+        drawBoard();
+      });
+
+      grid.appendChild(button);
+    });
+
+    choices.appendChild(grid);
+
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.textContent = "Reset 🔄";
+    reset.style.marginTop = "12px";
+
+    reset.addEventListener("click", () => {
+      board = Array(9).fill("");
+      turn = "X";
+      finished = false;
+      result.textContent = "Player X's turn";
+      drawBoard();
+    });
+
+    choices.appendChild(reset);
+  }
+
+  result.textContent = "Player X's turn";
+  drawBoard();
+
+  
+} else if (game === "group") {
+  title.textContent = "👯 Group Challenge";
+  question.textContent = "Describe your day using only three emojis!";
+
+  const answerBox = document.createElement("textarea");
+  answerBox.placeholder = "Type your answer here...";
+  answerBox.rows = 3;
+  answerBox.style.width = "100%";
+  answerBox.style.boxSizing = "border-box";
+  answerBox.style.marginTop = "10px";
+
+  const submitButton = document.createElement("button");
+  submitButton.type = "button";
+  submitButton.textContent = "Submit Answer 💌";
+  submitButton.style.marginTop = "8px";
+
+  submitButton.addEventListener("click", () => {
+    const answer = answerBox.value.trim();
+
+    if (!answer) {
+      result.textContent = "Type your answer first, dear! 💗";
+      return;
+    }
+
+    result.textContent = "Your answer: " + answer + " 💕";
+  });
+
+  choices.appendChild(answerBox);
+  choices.appendChild(submitButton);
+  result.textContent = "Write your answer below! 💗";
+}
+
+  area.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function showQuestion(game) {
+  const wordQuestions = [
+    { q: "What has keys but cannot open locks?", a: ["Piano", "Door", "Book"], correct: "Piano" },
+    { q: "What gets wetter as it dries?", a: ["Towel", "Soap", "Paper"], correct: "Towel" },
+    { q: "What has hands but cannot clap?", a: ["Clock", "Robot", "Baby"], correct: "Clock" },
+    { q: "What has a face and two hands but no arms or legs?", a: ["Clock", "Doll", "Tree"], correct: "Clock" }
+  ];
+
+  const quizQuestions = [
+    { q: "Which planet is known as the Red Planet?", a: ["Mars", "Venus", "Jupiter"], correct: "Mars" },
+    { q: "How many sides does a triangle have?", a: ["Four", "Three", "Five"], correct: "Three" },
+    { q: "Which animal is known as man's best friend?", a: ["Cat", "Dog", "Rabbit"], correct: "Dog" },
+    { q: "What is the largest ocean on Earth?", a: ["Atlantic", "Indian", "Pacific"], correct: "Pacific" }
+  ];
+
+  const questions = game === "word" ? wordQuestions : quizQuestions;
+  const index = game === "word" ? wordIndex : quizIndex;
+  const item = questions[index % questions.length];
+
+  document.getElementById("gameTitle").textContent =
+    game === "word" ? "🔤 Guess the Word" : "🧠 Quick Quiz";
+  document.getElementById("gameQuestion").textContent = item.q;
+
+  const choices = document.getElementById("gameChoices");
+  const result = document.getElementById("gameResult");
+  choices.replaceChildren();
+  result.textContent = "";
+
+  item.a.forEach(answer => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = answer;
+
+    button.addEventListener("click", () => {
+      result.textContent = answer === item.correct
+        ? "Correct! 🎉💗"
+        : "Not quite! The answer is " + item.correct + " 💕";
+
+      choices.querySelectorAll(".answer-choice").forEach(b => {
+        b.disabled = true;
+      });
+    });
+
+    button.classList.add("answer-choice");
+    choices.appendChild(button);
+  });
+
+  const nextButton = document.createElement("button");
+  nextButton.type = "button";
+  nextButton.textContent = "Next Question ➜";
+  nextButton.style.marginTop = "12px";
+
+  nextButton.addEventListener("click", () => {
+    if (game === "word") {
+      wordIndex = (wordIndex + 1) % wordQuestions.length;
+    } else {
+      quizIndex = (quizIndex + 1) % quizQuestions.length;
+    }
+    showQuestion(game);
+  });
+
+  choices.appendChild(nextButton);
+}
+
+    startApp();
+  </script>
+</body>
+</html>
