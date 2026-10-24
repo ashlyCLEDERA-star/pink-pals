@@ -1238,13 +1238,39 @@ function showQuestion(game) {
 
     startApp();
   </script>
-  
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", function () {
-        navigator.serviceWorker.register("./service-worker.js");
-      });
-    }
-  </script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("./service-worker.js");
+    });
+  }
+</script>
+
+<script>
+  const VAPID_PUBLIC_KEY = "BMII-8FhoeBHDX1b_maO1lkFaRtg7XNxuOJknLNWjM9Jy7bWJpMw1Alf0VPTRx_0wg0L6pCQshXjm1Wa3YJTFG0";
+</script>
+
+<button id="enablePushBtn" type="button">
+  🔔 Enable Notifications
+</button>
+
+<script>
+  document.getElementById("enablePushBtn")
+    .addEventListener("click", async function () {
+      if (!("Notification" in window)) {
+        alert("Hindi supported ang notifications sa browser na ito.");
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+
+      if (permission === "granted") {
+        alert("Notification permission allowed! 💗");
+      } else {
+        alert("Hindi pa allowed ang notifications.");
+      }
+    });
+</script>
 </body>
 </html>
