@@ -164,6 +164,12 @@
       margin-top: 7px;
     }
 
+    .reply-preview { background:#332430; border-left:3px solid var(--pink); padding:9px 12px; margin-top:10px; border-radius:8px; display:flex; justify-content:space-between; gap:10px; align-items:center; font-size:13px; }
+    .reply-quote { border-left:3px solid var(--pink); padding:6px 9px; margin-bottom:8px; background:#261c25; border-radius:6px; font-size:12px; color:var(--cream); }
+    .message-actions { display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; align-items:center; }
+    .message-actions button { padding:4px 7px; font-size:12px; background:#533345; border:1px solid #775065; }
+    .reaction-chip { border-radius:15px !important; }
+    .reaction-chip.selected { outline:2px solid var(--pink); }
     .composer {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -285,6 +291,7 @@
         <h3>💬 Group chat</h3>
         <div id="messages" class="chat-list"></div>
 
+        <div id="replyPreview" class="reply-preview hidden"><span id="replyPreviewText"></span><button id="cancelReply" type="button" class="small-button">✕</button></div>
         <form id="messageForm" class="composer">
           <input id="messageInput" maxlength="2000"
             placeholder="Type a message..." autocomplete="off">
@@ -365,6 +372,10 @@
     let mediaChannel = null;
     let memberChannel = null;
     let renderedMessageIds = new Set();
+    let messageCache = new Map();
+    let reactionsCache = new Map();
+    let replyingTo = null;
+    let reactionChannel = null;
     let renderedMediaIds = new Set();
     let mediaUrls = new Map();
 
@@ -584,6 +595,9 @@ await enterRoom();
       $("mediaGrid").replaceChildren();
       $("members").replaceChildren();
       renderedMessageIds.clear();
+      messageCache.clear();
+      reactionsCache.clear();
+      clearReply();
       renderedMediaIds.clear();
 
       await loadMembers();
@@ -591,6 +605,7 @@ await enterRoom();
       await loadMedia();
 
       subscribeToMessages();
+      subscribeToReactions();
       subscribeToMedia();
       subscribeToMembers();
     }
@@ -630,7 +645,7 @@ await enterRoom();
 
       const { data, error } = await client
         .from("chat_messages")
-        .select("id,room_id,user_id,display_name,message,created_at")
+        .select("id,room_id,user_id,display_name,message,created_at,reply_to")
         .eq("room_id", currentRoom.id)
         .order("created_at", { ascending: true })
         .limit(200);
@@ -643,34 +658,131 @@ await enterRoom();
 
       $("messages").replaceChildren();
       renderedMessageIds.clear();
+      messageCache.clear();
 
       for (const item of (data || [])) renderMessage(item);
+      await loadReactions();
       scrollMessagesToBottom();
+    }
+
+    function clearReply() {
+      replyingTo = null;
+      $("replyPreview").classList.add("hidden");
+      $("replyPreviewText").textContent = "";
+    }
+
+    function chooseReply(item) {
+      replyingTo = item;
+      $("replyPreviewText").textContent = "↩ " + safeText(item.display_name) + ": " + safeText(item.message).slice(0, 120);
+      $("replyPreview").classList.remove("hidden");
+      $("messageInput").focus();
     }
 
     function renderMessage(item) {
       const id = String(item.id);
+      messageCache.set(id, item);
       if (renderedMessageIds.has(id)) return;
       renderedMessageIds.add(id);
 
       const wrapper = document.createElement("div");
-      wrapper.className =
-        "message" + (item.user_id === currentUser?.id ? " mine" : "");
+      wrapper.className = "message" + (item.user_id === currentUser?.id ? " mine" : "");
+      wrapper.dataset.messageId = id;
 
       const author = document.createElement("div");
       author.className = "message-author";
       author.textContent = safeText(item.display_name);
-
       const body = document.createElement("div");
       body.className = "message-text";
       body.textContent = safeText(item.message);
-
       const time = document.createElement("div");
       time.className = "timestamp";
       time.textContent = formatTime(item.created_at);
 
-      wrapper.append(author, body, time);
+      wrapper.appendChild(author);
+      if (item.reply_to) {
+        const quote = document.createElement("div");
+        quote.className = "reply-quote";
+        const target = messageCache.get(String(item.reply_to));
+        quote.textContent = target
+          ? "↩ " + safeText(target.display_name) + ": " + safeText(target.message).slice(0, 140)
+          : "↩ Reply to an earlier message";
+        wrapper.appendChild(quote);
+      }
+      wrapper.append(body, time);
+
+      const actions = document.createElement("div");
+      actions.className = "message-actions";
+      const replyButton = document.createElement("button");
+      replyButton.type = "button";
+      replyButton.textContent = "↩ Reply";
+      replyButton.addEventListener("click", () => chooseReply(item));
+      actions.appendChild(replyButton);
+      const reactions = document.createElement("span");
+      reactions.className = "reaction-buttons";
+      for (const emoji of ["❤️", "😂", "😮", "😢", "👍", "🔥"]) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "reaction-chip";
+        b.dataset.emoji = emoji;
+        b.textContent = emoji;
+        b.title = "React " + emoji;
+        b.addEventListener("click", () => toggleReaction(id, emoji));
+        reactions.appendChild(b);
+      }
+      actions.appendChild(reactions);
+      wrapper.appendChild(actions);
       $("messages").appendChild(wrapper);
+      updateReactionButtons(id);
+    }
+
+    function updateReactionButtons(messageId) {
+      const wrapper = Array.from($("messages").children).find(el => el.dataset.messageId === String(messageId));
+      if (!wrapper) return;
+      const rows = reactionsCache.get(String(messageId)) || [];
+      for (const button of wrapper.querySelectorAll(".reaction-chip")) {
+        const emoji = button.dataset.emoji;
+        const matching = rows.filter(r => r.emoji === emoji);
+        const mine = matching.some(r => r.user_id === currentUser?.id);
+        button.textContent = emoji + (matching.length ? " " + matching.length : "");
+        button.classList.toggle("selected", mine);
+      }
+    }
+
+    async function loadReactions() {
+      if (!currentRoom) return;
+      const roomId = currentRoom.id;
+      const { data, error } = await client.from("message_reactions")
+        .select("message_id,user_id,emoji").eq("room_id", roomId);
+      if (error) { console.error("Could not load reactions:", error); return; }
+      if (!currentRoom || currentRoom.id !== roomId) return;
+      reactionsCache.clear();
+      for (const row of (data || [])) {
+        const id = String(row.message_id);
+        if (!reactionsCache.has(id)) reactionsCache.set(id, []);
+        reactionsCache.get(id).push(row);
+      }
+      for (const id of messageCache.keys()) updateReactionButtons(id);
+    }
+
+    async function toggleReaction(messageId, emoji) {
+      if (!currentUser || !currentRoom) return;
+      const existing = (reactionsCache.get(String(messageId)) || [])
+        .some(r => r.user_id === currentUser.id && r.emoji === emoji);
+      const query = client.from("message_reactions");
+      const { error } = existing
+        ? await query.delete().eq("message_id", messageId).eq("user_id", currentUser.id).eq("emoji", emoji)
+        : await query.insert({room_id:currentRoom.id,message_id:messageId,user_id:currentUser.id,emoji});
+      if (error) { setStatus("Reaction failed: " + error.message); return; }
+      await loadReactions();
+    }
+
+    function subscribeToReactions() {
+      if (reactionChannel) client.removeChannel(reactionChannel);
+      reactionChannel = client.channel("reactions-" + currentRoom.id)
+        .on("postgres_changes", {
+          event:"*", schema:"public", table:"message_reactions",
+          filter:"room_id=eq." + currentRoom.id
+        }, () => loadReactions()).subscribe();
     }
 
     function scrollMessagesToBottom() {
@@ -738,12 +850,14 @@ await enterRoom();
             room_id: currentRoom.id,
             user_id: currentUser.id,
             display_name: currentNickname,
-            message
+            message,
+            reply_to: replyingTo?.id || null
           });
 
         if (error) throw error;
 
         input.value = "";
+        clearReply();
         input.focus();
       } catch (error) {
         console.error(error);
@@ -989,10 +1103,13 @@ await enterRoom();
       if (!confirm("Leave this room on this device?")) return;
 
       if (messageChannel) client.removeChannel(messageChannel);
+      if (reactionChannel) client.removeChannel(reactionChannel);
       if (mediaChannel) client.removeChannel(mediaChannel);
       if (memberChannel) client.removeChannel(memberChannel);
 
       messageChannel = null;
+      reactionChannel = null;
+      clearReply();
       mediaChannel = null;
       memberChannel = null;
 
@@ -1017,6 +1134,7 @@ await enterRoom();
     $("copyButton").addEventListener("click", copyInvite);
     $("leaveButton").addEventListener("click", leaveRoom);
     $("messageForm").addEventListener("submit", sendMessage);
+    $("cancelReply").addEventListener("click", clearReply);
     $("uploadForm").addEventListener("submit", uploadMedia);
 
     async function startApp() {
